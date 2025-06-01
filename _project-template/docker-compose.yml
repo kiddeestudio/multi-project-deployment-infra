@@ -51,8 +51,6 @@ services:
       caddy: ${API_HOST}
       # Reverse proxy ไปยังพอร์ต API ภายในคอนเทนเนอร์
       caddy.reverse_proxy: "{{upstreams ${API_PORT}}}"
-      # (Optional) หากต้องการ redirect HTTP ไป HTTPS เสมอ
-      caddy.redirects: "http://{http.request.hostport} https://{http.request.hostport}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:$API_PORT"]
       interval: 15s
@@ -83,7 +81,6 @@ services:
       # โดเมนสำหรับ Backoffice
       caddy: ${BACKOFFICE_HOST}
       caddy.reverse_proxy: "{{upstreams ${BACKOFFICE_PORT}}}"
-      caddy.redirects: "http://{http.request.hostport} https://{http.request.hostport}"
     depends_on:
       # Backoffice อาจจะขึ้นอยู่กับ API
       - api
@@ -109,7 +106,6 @@ services:
       # โดเมนสำหรับ Frontend
       caddy: ${FRONTEND_HOST}
       caddy.reverse_proxy: "{{upstreams ${FRONTEND_PORT}}}"
-      caddy.redirects: "http://{http.request.hostport} https://{http.request.hostport}"
     depends_on:
       # Frontend อาจจะขึ้นอยู่กับ API
       - api

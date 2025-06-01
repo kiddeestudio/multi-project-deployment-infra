@@ -88,7 +88,6 @@ Caddy จะ map โดเมนโดยอัตโนมัติ จาก l
 labels:
   caddy: api.myproject.com
   caddy.reverse_proxy: "{{upstreams 3000}}"
-  caddy.redirects: "http://{http.request.hostport} https://{http.request.hostport}"
 ```
 
 ---
