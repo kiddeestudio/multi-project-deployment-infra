@@ -29,6 +29,9 @@ sudo usermod -aG docker $USER
 docker --version
 docker compose version
 
+# สร้าง docker network สำหรับ proxy
+docker network create proxy
+
 # ----------------------------
 # ตั้งค่า UFW Firewall
 # ----------------------------
