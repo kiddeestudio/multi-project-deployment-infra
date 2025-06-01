@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------
+  # Database Service: PostgreSQL 15
+  # ----------------------------------------------------------------------
+  db:
+    image: postgres:15
+    # ชื่อคอนเทนเนอร์สำหรับ Database
+    container_name: ${PROJECT_NAME}-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    volumes:
+      # Persistent volume สำหรับข้อมูล DB
+      - db_data:/var/lib/postgresql/data
+    networks:
+      # เครือข่ายภายในสำหรับแอปพลิเคชัน
+      - app_network
+      # เชื่อมต่อกับเครือข่าย proxy ของ Caddy
+      - proxy
+
+  # ----------------------------------------------------------------------
+  # API Service: NestJS (Backend)
+  # ----------------------------------------------------------------------
+  api:
+    build:
+      # Directory ที่มี Dockerfile ของ NestJS
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: ${PROJECT_NAME}-api
+    restart: always
+    environment:
+      # ตั้งค่าการเชื่อมต่อ DB สำหรับ NestJS
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # ตั้งค่าอื่นๆ ที่ API ต้องการ
+      # ...
+    expose:
+      # Expose พอร์ตภายในที่ NestJS รันอยู่ (ไม่ publish ออกสู่โฮสต์)
+      - ${API_PORT}
+    labels:
+      # Caddy Docker Proxy Labels
+      # โดเมนสำหรับ API
+      caddy: ${API_HOST}
+      # Reverse proxy ไปยังพอร์ต API ภายในคอนเทนเนอร์
+      caddy.reverse_proxy: "{{upstreams ${API_PORT}}}"
+      # (Optional) หากต้องการ redirect HTTP ไป HTTPS เสมอ
+      caddy.redirects: "http://{http.request.hostport} https://{http.request.hostport}"
+    depends_on:
+      # API ขึ้นอยู่กับ Database
+      - db
+    networks:
+      - app_network
+      - proxy
+
+  # ----------------------------------------------------------------------
+  # Backoffice Service: Vue.js (Frontend Admin Panel)
+  # ----------------------------------------------------------------------
+  backoffice:
+    build:
+      # Directory ที่มี Dockerfile ของ Vue.js Backoffice
+      context: ./backoffice
+      dockerfile: Dockerfile
+    container_name: ${PROJECT_NAME}-backoffice
+    restart: always
+    expose:
+      # Expose พอร์ตภายในที่ Vue.js รันอยู่
+      - ${BACKOFFICE_PORT}
+    labels:
+      # Caddy Docker Proxy Labels
+      # โดเมนสำหรับ Backoffice
+      caddy: ${BACKOFFICE_HOST}
+      caddy.reverse_proxy: "{{upstreams ${BACKOFFICE_PORT}}}"
+      caddy.redirects: "http://{http.request.hostport} https://{http.request.hostport}"
+    depends_on:
+      # Backoffice อาจจะขึ้นอยู่กับ API
+      - api
+    networks:
+      - app_network
+      - proxy
+
+  # ----------------------------------------------------------------------
+  # Frontend Service: Vue.js (Public Website)
+  # ----------------------------------------------------------------------
+  frontend:
+    build:
+      # Directory ที่มี Dockerfile ของ Vue.js Frontend
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ${PROJECT_NAME}-frontend
+    restart: always
+    expose:
+      # Expose พอร์ตภายในที่ Vue.js รันอยู่
+      - ${FRONTEND_PORT}
+    labels:
+      # Caddy Docker Proxy Labels
+      # โดเมนสำหรับ Frontend
+      caddy: ${FRONTEND_HOST}
+      caddy.reverse_proxy: "{{upstreams ${FRONTEND_PORT}}}"
+      caddy.redirects: "http://{http.request.hostport} https://{http.request.hostport}"
+    depends_on:
+      # Frontend อาจจะขึ้นอยู่กับ API
+      - api
+    networks:
+      - app_network
+      - proxy
+
+# ----------------------------------------------------------------------
+# Networks & Volumes
+# ----------------------------------------------------------------------
+volumes:
+  # Volume สำหรับข้อมูล PostgreSQL
+  db_data:
+
+networks:
+  # เครือข่ายภายในสำหรับคอนเทนเนอร์ของแอปพลิเคชัน (db, api, backoffice, frontend)
+  app_network:
+    driver: bridge
+  # เครือข่ายที่ใช้เชื่อมต่อกับ Caddy Docker Proxy (ต้องเป็น external)
+  proxy:
+    external: true
